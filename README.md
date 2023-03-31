@@ -14,11 +14,15 @@ The code and dataset for the paper of repository name published in Computer Grap
 
 ### Training of autoencoder
 
-% python autoencoder.py
+% python nn/autoencoder.py
+
+The log and checkpoints file will be saved at `````./pretrain/AE`````.
 
 ### Training of gesture-style transformer
 
-% python gsxf.py
+% python nn/gsxf.py
+
+The log and checkpoints file will be saved at `````./pretrain/GSXF`````.
 
 ### Evaluation of gesture-style transformer
 

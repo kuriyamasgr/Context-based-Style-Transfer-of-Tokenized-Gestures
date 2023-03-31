@@ -50,14 +50,13 @@ class GestureStyleTransformer(LitModel, ABC):
         style_set.setup_mirror_motions()  # data augumentation by taking minnor motions
         self.s_token_list = []
         for _style_clip in style_set.clips:  # for each style samples
-            _style_z = self.ae.encode(torch.unsqueeze(torch.tensor(_style_clip.tensor), dim=0))
+            _style_z = self.ae.encode(torch.unsqueeze(torch.tensor(_style_clip.tensor).to(self.device), dim=0))
             _s_token = self.tensor2token(_style_z)
             self.s_token_list.append(_s_token)
 
         # print(len(self.s_token_list), 'style files are used...')
 
-    @staticmethod
-    def set_autoencoder(config):
+    def set_autoencoder(self, config):
         """
         Set up autoencoder for converting a gesture motion representation into corresnponding latent variables
         :param config: dictionary for configuring the path to the checkpoint file of pre-trained autoencoder
@@ -65,12 +64,9 @@ class GestureStyleTransformer(LitModel, ABC):
         """
         ckpt_paths = glob.glob(config['ae_path'] + '/checkpoints/*.ckpt')
         ckpt_paths = np.sort(ckpt_paths)
+
         # print('AutoEncoder of ', ckpt_paths[-1], 'is loaded...')
-        if torch.cuda.is_available():
-            _mapl = torch.device('cuda')
-        else:
-            _mapl = torch.device('cpu')
-        _ae = AutoEncoder.load_from_checkpoint(checkpoint_path=ckpt_paths[-1], map_location=_mapl)
+        _ae = AutoEncoder.load_from_checkpoint(checkpoint_path=ckpt_paths[-1], map_location=self.device)
         for param in _ae.parameters():
             param.requires_grad_(False)
         return _ae
@@ -121,7 +117,7 @@ class GestureStyleTransformer(LitModel, ABC):
         _n_split = int(self.token_width // _step)
         _total = (_num_token - 1) * _n_split + 1
         _token_dim = self.token_width * self.dim_z
-        _tens_pool = torch.zeros(_n_batch, _total, _token_dim)
+        _tens_pool = torch.zeros(_n_batch, _total, _token_dim).to(self.device)
         for offset, s in enumerate(range(0, self.token_width, _step)):
             if s == 0:
                 _tens = tensor[:, :_num_token * self.token_width, :]
@@ -322,7 +318,7 @@ def swapper(decoded_content, encoded_style, style_token, multi_stream=False, har
 
     if hard_swap:
         _indices = torch.argmax(_matrix, dim=2)  # batch, num_c_token, num_s_token
-        _weights = torch.zeros(_matrix.shape)
+        _weights = torch.zeros(_matrix.shape).to(_matrix.device)
         for b in range(_weights.shape[0]):
             for c in range(_weights.shape[1]):
                 _weights[b, c, _indices[b, c]] = 1.0
@@ -348,7 +344,7 @@ def simple_swapper(c_token, s_token):
     _s_nrm_token = F.normalize(s_token, dim=2)
     _matrix = torch.tensordot(_c_nrm_token, _s_nrm_token, dims=[[1, 2], [1, 2]])
     _indices = torch.argmax(_matrix, dim=1)
-    _xf_tokens = torch.zeros(_c_nrm_token.shape[0], c_token.shape[2])
+    _xf_tokens = torch.zeros(_c_nrm_token.shape[0], c_token.shape[2]).to(c_token.device)
     for n, _ind in enumerate(_indices):
         _xf_tokens[n, :] = s_token[_ind, 0, :]
     return torch.unsqueeze(_xf_tokens, dim=1)
@@ -363,7 +359,7 @@ def linear_blending(tokens, width, dim_z):
     """
     _token_size = width * dim_z  # full channel size per each token
     _half_w = int(_token_size // 2)
-    _wgt = torch.arange(0., 1.0001, 1. / (_half_w - 1))
+    _wgt = torch.arange(0., 1.0001, 1. / (_half_w - 1)).to(tokens.device)
     _blended = []
     _prev = None
     for _token in tokens:
@@ -385,7 +381,6 @@ if __name__ == '__main__':
     """
     Used in training this transformer
     """
-    import os
     import time
     from trainer import train
 
@@ -399,10 +394,9 @@ if __name__ == '__main__':
         },
         'data_path': './dataset/bvh/training',
         'batch_size': 8, 'learning_rate': 0.0001, 'num_frames': 1280,
-        'fps': 60, 'max_epochs': 1000, 'version': 'GSX4ep1K'
+        'fps': 60, 'max_epochs': 1000, 'version': 'GSXF'
     }
 
-    os.chdir('../')
     start = time.time()
     train(GestureStyleTransformer, hyper_parameters)
     print('Training time =', time.time() - start)

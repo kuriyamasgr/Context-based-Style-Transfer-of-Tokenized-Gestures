@@ -3,6 +3,7 @@
 
 import torch
 import torch.nn as nn
+import numpy as np
 
 
 class TransformerDecoder(nn.Module):
@@ -14,11 +15,17 @@ class TransformerDecoder(nn.Module):
         :param hid_dim: dimension of latent variables (hidden states)
         """
         super().__init__()
+
+        if torch.cuda.is_available():
+            _device = torch.device('cuda')
+        else:
+            _device = torch.device('cpu')
+
         self.layer_nrm = nn.LayerNorm(normalized_shape=hid_dim)
         self.fc_q = nn.Linear(hid_dim, hid_dim)
         self.fc_kv = nn.Linear(hid_dim, 2 * hid_dim)
         self.fc_o = nn.Linear(hid_dim, hid_dim)
-        self.scale = torch.sqrt(torch.tensor([hid_dim]))
+        self.scale = torch.sqrt(torch.tensor([hid_dim])).to(_device)
         self.mlp = nn.Sequential(
             nn.Linear(in_features=hid_dim, out_features=hid_dim),
             nn.GELU(),
@@ -60,18 +67,23 @@ class TransformerEncoder(nn.Module):
         """
         super().__init__()
 
+        if torch.cuda.is_available():
+            _device = torch.device('cuda')
+        else:
+            _device = torch.device('cpu')
+
         self._init_mask()
-        self.pe = ConstantPE(d_model=hid_dim, max_len=150)
+        self.pe = ConstantPE(d_model=hid_dim, max_len=150, device=_device)
         self.layer_nrm = nn.LayerNorm(normalized_shape=hid_dim)
         self.fc_qkv = nn.Linear(hid_dim, 3 * hid_dim)
         self.fc_o = nn.Linear(hid_dim, hid_dim)
-        self.scale = torch.sqrt(torch.tensor([hid_dim], dtype=torch.float))
+        self.scale = torch.sqrt(torch.tensor([hid_dim], dtype=torch.float)).to(_device)
         self.mlp = nn.Sequential(
             nn.Linear(in_features=hid_dim, out_features=hid_dim),
             nn.GELU(),
             nn.Linear(in_features=hid_dim, out_features=hid_dim)
         )
-        self.cls_token = nn.Parameter(torch.randn(1, hid_dim))
+        self.cls_token = nn.Parameter(torch.randn(1, hid_dim)).to(_device)
 
     def forward(self, z, structure=False):
         """
@@ -128,7 +140,7 @@ class ConstantPE(nn.Module):
     """
     Constant Positional Encoding
     """
-    def __init__(self, d_model, max_len, period=1):
+    def __init__(self, d_model, max_len, device, period=1):
         """
         :param d_model: dimension of each token
         :param max_len: maximum length of the positional encoding
@@ -137,11 +149,11 @@ class ConstantPE(nn.Module):
         super(ConstantPE, self).__init__()
 
         pe = torch.zeros(max_len, d_model)
-        position = 2.0 * torch.pi * torch.arange(0, max_len, dtype=torch.float).unsqueeze(1) / period
+        position = 2.0 * np.pi * torch.arange(0, max_len, dtype=torch.float).unsqueeze(1) / period
         div_term = torch.exp(torch.arange(0, d_model, 2) * (-torch.log(torch.tensor(10000.0)) / d_model))
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0)  # _z:batch(=1), num_token, token_dim (8x16=128)
+        pe = pe.unsqueeze(0).to(device)  # _z:batch(=1), num_token, token_dim (8x16=128)
         self.register_buffer('pe', pe)
 
     def forward(self, z, batch_first=False):

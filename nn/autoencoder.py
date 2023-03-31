@@ -176,10 +176,8 @@ if __name__ == '__main__':
     """
     Training/Testing the autoencoder
     """
-    import os
     from trainer import train
 
-    os.chdir('../')
     hyper_parameters = {
         'config': {
             'encode_chs': [64, 32, 16],

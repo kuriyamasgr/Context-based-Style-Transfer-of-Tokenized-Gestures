@@ -7,7 +7,7 @@ import torch
 import numpy as np
 import torch.nn as nn
 import lit_model
-from utils.quaternion import expq, qdifangle
+from dataset.quaternion import expq, qdifangle
 from dataset.mocap import MocapSet
 
 

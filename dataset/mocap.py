@@ -5,9 +5,106 @@ import numpy as np
 import copy
 import torch
 from torch.utils import data
-from utils.quaternion import qexp, expq, quat_euler, euler_quat, qmul, slerp
-from utils.kinematics import get_joint_positions
-from dataset.bvh import BVH
+from .quaternion import qexp, expq, quat_euler, euler_quat, qmul, slerp, qrot
+from .bvh import BVH
+
+
+def _fetch_site_indices(linkage):
+    site_indices = []
+    for n in range(len(linkage)):
+        if n not in linkage:  # n-th joint has no children
+            site_indices.append(n)
+
+    return site_indices
+
+
+def get_joint_positions(rotations, offsets, linkage, root_positions=None, flatten=False, use_torch=False):
+    """
+    Perform forward kinematics using the given trajectory and local rotations.
+    Arguments (where B = number of batches, L = sequence length, J = number of joints):
+     -- rotations: ([B], L, J, 4) tensor of unit quaternions describing the local rotations of each joint.
+     -- root_positions: ([B], L, 3) tensor describing the root joint positions.
+    """
+    if use_torch and torch.cuda.is_available():
+        device = torch.device('cuda')
+    else:
+        device = torch.device('cpu')
+
+    if root_positions is not None and rotations.shape[0] != root_positions.shape[0]:
+        rotations = rotations[:root_positions.shape[0], :, :]
+
+    batch_mode = (len(rotations.shape) == 4)
+    if batch_mode:
+        num_batches = rotations.shape[0]
+        frames_per_batch = rotations.shape[1]
+        total_frames = num_batches * frames_per_batch
+    else:
+        total_frames = rotations.shape[0]
+
+    null_rotations = None
+    if root_positions is None:
+        _omit_root = True
+        if use_torch:
+            root_positions = torch.zeros(total_frames, 3).double().to(device)
+            null_rotations = torch.tensor([1.0, 0.0, 0.0, 0.0]).double().to(device)  # We reset orientation of root !
+            null_rotations = null_rotations.expand(total_frames, 4)
+        else:
+            root_positions = np.zeros([total_frames, 3])
+            null_rotations = np.array([1.0, 0.0, 0.0, 0.0])  # We also reset orientation of root !
+            null_rotations = np.expand_dims(null_rotations, axis=0)
+            null_rotations = np.repeat(null_rotations, total_frames, axis=0)
+    else:
+        _omit_root = False
+        if batch_mode:
+            root_positions = root_positions.view(-1, 3)
+
+    if batch_mode:  # this always uses torch
+        rotations = rotations.contiguous().view(-1, rotations.shape[2], rotations.shape[3])
+        if len(offsets.shape) == 3:  # static along time
+            offsets = offsets.expand(total_frames, offsets.shape[1], offsets.shape[2])
+        else:
+            offsets = offsets.view(-1, offsets.shape[2], offsets.shape[3])
+    else:
+        if len(offsets.shape) == 2:  # static along time
+            offsets = np.expand_dims(offsets, axis=0)
+            offsets = np.repeat(offsets, total_frames, axis=0)
+
+    # Parallelize along the batch and time dimensions
+    positions_world = []
+    rotations_world = []
+    sample_positions = []
+    _site_indices = _fetch_site_indices(linkage)
+
+    ridx = 0  # row indices of rotations
+    for i in range(offsets.shape[1]):
+        if linkage[i] == -1:  # for root joint...
+            positions_world.append(root_positions)
+            if _omit_root:
+                rotations_world.append(null_rotations)
+            else:
+                rotations_world.append(rotations[:, 0, :])
+            ridx += 1
+        elif i not in _site_indices:
+            _position = qrot(rotations_world[linkage[i]], offsets[:, i, :], torch=use_torch) \
+                        + positions_world[linkage[i]]
+            positions_world.append(_position)
+            if ridx < rotations.shape[1]:
+                rotations_world.append(qmul(rotations_world[linkage[i]], rotations[:, ridx, :], torch=use_torch))
+            sample_positions.append(_position)  # sample only is_sampled nodes
+            ridx += 1
+        else:  # fixed joints such as sites or fingures
+            rotations_world.append(None)
+            positions_world.append(None)
+
+    if use_torch:
+        _positions = torch.stack(sample_positions, dim=0).permute(1, 0, 2)
+    else:
+        _positions = np.transpose(np.array(sample_positions), (1, 0, 2))
+
+    if flatten:
+        return np.reshape(_positions, (_positions.shape[0], -1))
+    else:
+        return _positions
 
 
 class MocapClip:

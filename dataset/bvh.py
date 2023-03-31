@@ -2,7 +2,7 @@
 # @author: kuriyama
 
 import numpy as np
-from utils.quaternion import euler_quat, quat_euler
+from .quaternion import euler_quat, quat_euler
 
 def str2floats(val, idx, is_position=False):
     """

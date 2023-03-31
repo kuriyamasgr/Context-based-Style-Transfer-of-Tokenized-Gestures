@@ -3,9 +3,9 @@ The code and dataset for the paper of repository name published in Computer Grap
 
 ### Prerequisite
 
-- python 3.9
-- torch 1.12.0
-- pytorch_lightning 1.5.8
+- python > 3.9
+- torch
+- pytorch_lightning
 - glob
 - numpy
 - copy
@@ -24,7 +24,7 @@ The log and checkpoints file will be saved at `````./pretrain/AE`````.
 
 The log and checkpoints file will be saved at `````./pretrain/GSXF`````.
 
-### Evaluation of gesture-style transformer
+### Evaluation of gesture-style transformer (We implemented only for CPU mode!)
 
 % python evaluator.py
 

@@ -3,7 +3,7 @@ The code and dataset for the paper of repository name published in Computer Grap
 
 ### Prerequisite
 
-- python3.*
+- python 3.*
 - torch
 - pytorch_lightning
 - glob
@@ -30,7 +30,7 @@ The log and checkpoints file will be saved at `````./pretrain/GSXF`````.
 
 ### Dataset preparation
 
-ownload BVH from a [[zip file (43MB)]](https://bit.ly/3M1V24n),
+Download BVH from a [[zip file (43MB)]](https://bit.ly/3M1V24n),
 and place its uncompressed folder under a dataset folder.
 
 ### Citation

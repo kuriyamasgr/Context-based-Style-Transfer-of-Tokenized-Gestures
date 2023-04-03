@@ -4,6 +4,7 @@
 import copy
 import glob
 import numpy as np
+import torch
 
 from dataset.mocap import MocapSet
 from scipy.spatial.distance import euclidean
@@ -68,7 +69,7 @@ def _setup_model(model_class, log_path):
     files = glob.glob(log_path + '/checkpoints/*.ckpt')
     files.sort()
     ckpt_path = files[-1]
-    return model_class.load_from_checkpoint(checkpoint_path=ckpt_path)
+    return model_class.load_from_checkpoint(checkpoint_path=ckpt_path, map_location=torch.device('cpu'), strict=False)
 
 
 def _pad_terminal(tensor, width):
@@ -172,4 +173,4 @@ def similar_style_metric(transfer, reference, width = 128):  # input sensors of 
 
 
 if __name__ == '__main__':
-    evaluation(model=GestureStyleTransformer, version=['SCA'], type='inter')
+    evaluation(model=GestureStyleTransformer, version=['GSXF'], type='inter')

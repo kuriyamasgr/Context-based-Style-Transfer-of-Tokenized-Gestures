@@ -3,7 +3,7 @@ The code and dataset for the paper of repository name published in Computer Grap
 
 ### Prerequisite
 
-- python > 3.9
+- python3.*
 - torch
 - pytorch_lightning
 - glob
@@ -24,7 +24,7 @@ The log and checkpoints file will be saved at `````./pretrain/AE`````.
 
 The log and checkpoints file will be saved at `````./pretrain/GSXF`````.
 
-### Evaluation of gesture-style transformer (We implemented only for CPU mode!)
+### Evaluation of gesture-style transformer (Only CPU mode is available)
 
 % python evaluator.py
 
@@ -37,9 +37,9 @@ and place its uncompressed folder under a dataset folder.
 
 If you use this work please cite.
 ```
-@article {kuriyama2022cgf,
+@article {Kuriyama2022cgf,
 journal = {Computer Graphics Forum},
-title = {{Context-based Style Transfer of Tokenized Gestures}},
+title = {Context-based Style Transfer of Tokenized Gestures},
 author = {Kuriyama, Shigeru and Mukai, Tomohiko and Taketomi, Takafumi and Mukasa, Tomoyuki},
 year = {2022},
 publisher = {The Eurographics Association and John Wiley & Sons Ltd.},
